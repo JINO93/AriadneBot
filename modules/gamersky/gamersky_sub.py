@@ -1,8 +1,9 @@
-import requests
 import json
-from bs4 import BeautifulSoup as BS
 import os
 import random
+
+import requests
+from bs4 import BeautifulSoup as BS
 
 TARGET_SUFFIX = ['动态图', '囧图']
 ROOT_SAVE_PATH = "data/gamersky_sub/"
@@ -121,10 +122,10 @@ def fetchPage(page):
                 # itemInfo.append({"link": block.a['href'], "title": title})
                 if s == TARGET_SUFFIX[0]:
                     fetchGifDetail(block.a['href'], True)
-                    count +=1
+                    count += 1
                 else:
                     fetchPicDetail(block.a['href'], True)
-                    count +=1
+                    count += 1
     return count
 
 
