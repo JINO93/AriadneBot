@@ -47,7 +47,7 @@ __usage__ = "使用方法：lyf [type]"
                 Sparkle(
                     matches={
                         "header": FullMatch("gs-fetch"),
-                        "arg": ArgumentMatch("page", ptional=False),
+                        "arg": ArgumentMatch("page", optional=False),
                         "page_index": WildcardMatch(optional=True),
                     },
                 )
