@@ -2,7 +2,7 @@ from graia.ariadne.app import Ariadne
 from graia.ariadne.event.message import GroupMessage, FriendMessage
 from graia.ariadne.message.chain import MessageChain
 from graia.ariadne.message.element import Plain, Image
-from graia.ariadne.message.parser.pattern import FullMatch, WildcardMatch, ArgumentMatch
+from graia.ariadne.message.parser.pattern import FullMatch, WildcardMatch
 from graia.ariadne.message.parser.twilight import Twilight, Sparkle
 from graia.ariadne.model import Friend, Group
 from graia.saya import Saya, Channel
@@ -46,8 +46,8 @@ __usage__ = "使用方法：lyf [type]"
             Twilight(
                 Sparkle(
                     matches={
-                        "header": FullMatch("gs-fetch"),
-                        "arg": ArgumentMatch("page", optional=False),
+                        "header": FullMatch("gs-fetch page"),
+                        # "arg": ArgumentMatch("page", optional=False),
                         "page_index": WildcardMatch(optional=True),
                     },
                 )
