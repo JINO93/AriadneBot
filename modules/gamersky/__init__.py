@@ -4,7 +4,7 @@ from graia.ariadne.app import Ariadne
 from graia.ariadne.event.message import GroupMessage, FriendMessage
 from graia.ariadne.message.chain import MessageChain
 from graia.ariadne.message.element import Plain, Image
-from graia.ariadne.message.parser.pattern import FullMatch, WildcardMatch, ArgumentMatch
+from graia.ariadne.message.parser.pattern import FullMatch, WildcardMatch, ArgumentMatch, RegexMatch
 from graia.ariadne.message.parser.twilight import Twilight, Sparkle
 from graia.ariadne.model import Friend, Group
 from graia.saya import Saya, Channel
@@ -83,13 +83,68 @@ async def friend_message_listener(app: Ariadne, friend: Friend,
             save_config(config_path, config)
             if not int(p):
                 schedule_helper.removeAllJob()
-            # updateSchedule()
         elif schedule_arg.matched:
             scheduleRules = schedule_arg.result.asDisplay()
             scheduleRules = re.sub(r":", " ", scheduleRules)
             schedule_helper.addScheduleJob("schedule_send_pic", schedule_send_pic, scheduleRules)
     except ValueError:
         await app.sendFriendMessage(friend, MessageChain.create([Plain(__usage__)]))
+
+
+@channel.use(
+    ListenerSchema(
+        listening_events=[GroupMessage],
+        inline_dispatchers=[
+            Twilight(
+                Sparkle(
+                    matches={
+                        "header": FullMatch("gs-admin"),
+                        "fetch_arg": ArgumentMatch("--fetch", "-f", optional=True),
+                        "schedule_arg": ArgumentMatch("--schedule", "-s", optional=True),
+                        "schedule_enable_arg": ArgumentMatch("--enable-schedule", "-e", optional=True),
+                        "subscribe_arg": ArgumentMatch("--subscribe", "-sub", "-S", optional=True),
+                        # "param": WildcardMatch(optional=True),
+                    },
+                )
+            )
+        ],
+    )
+)
+async def group_admin_manage_handle(app: Ariadne, group: Group,
+                                    fetch_arg: ArgumentMatch,
+                                    schedule_arg: ArgumentMatch,
+                                    schedule_enable_arg: ArgumentMatch,
+                                    subscribe_arg: ArgumentMatch
+                                    ):
+    try:
+        if fetch_arg.matched:
+            index = fetch_arg.result.asDisplay()
+            count = fetchPage(index)
+            await app.sendGroupMessage(group, MessageChain.create([Plain(f'fetch article count:{count}')]))
+        elif schedule_enable_arg.matched:
+            p = schedule_enable_arg.result.asDisplay()
+            print(f"receive param:{p}")
+            config['schedule'] = int(p)
+            save_config(config_path, config)
+            if not int(p):
+                schedule_helper.removeAllJob()
+            # updateSchedule()
+        elif schedule_arg.matched:
+            scheduleRules = schedule_arg.result.asDisplay()
+            scheduleRules = re.sub(r":", " ", scheduleRules)
+            schedule_helper.addScheduleJob("schedule_send_pic", schedule_send_pic, scheduleRules)
+        elif subscribe_arg.matched:
+            sub = subscribe_arg.result.asDisplay()
+            if sub in ['1', 'true', 'True'] and group not in config['sub_list']:
+                config['sub_list'].append(group.id)
+                msg = '订阅成功'
+            else:
+                config['sub_list'].remove(group.id)
+                msg = '取消订阅成功'
+            save_config(config_path, config)
+            await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
+    except ValueError:
+        await app.sendGroupMessage(group, MessageChain.create([Plain(__usage__)]))
 
 
 @channel.use(
@@ -128,4 +183,9 @@ async def group_message_listener(app: Ariadne, group: Group, arg1: WildcardMatch
 
 
 async def schedule_send_pic(app: Ariadne):
-    print("1")
+    for group_id in config['sub_list']:
+        picPath = getPicByType(int(TYPE_RANDOM))
+        print(f"send pic path:{picPath}")
+        await app.sendGroupMessage(group_id,
+                                   MessageChain.create(
+                                       [Image(path=picPath), Plain(picPath[picPath.rindex("/") + 2:-4])]))
