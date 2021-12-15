@@ -58,7 +58,7 @@ def fetchPicDetail(detailUrl, isFirstLoad):
     savePath = ROOT_SAVE_PATH + dirName
     if isFirstLoad and (os.path.exists(savePath) or os.path.exists(f'{ROOT_SAVE_PATH}_{dirName}')):
         print(f"{detailUrl} has already downloaded in path:{savePath}.")
-        return
+        return False
     for block in bs.find("div", class_='Mid2L_con').findAll("p"):
         # print(block)
         if block.a is None:
@@ -71,6 +71,7 @@ def fetchPicDetail(detailUrl, isFirstLoad):
     nextPageNode = bs.find("a", text='下一页')
     if nextPageNode is not None:
         fetchPicDetail(nextPageNode['href'], False)
+    return True
 
 
 def fetchGifDetail(url, isFirstLoad):
@@ -89,7 +90,7 @@ def fetchGifDetail(url, isFirstLoad):
     savePath = ROOT_SAVE_PATH + dirName
     if isFirstLoad and (os.path.exists(savePath) or os.path.exists(f'{ROOT_SAVE_PATH}_{dirName}')):
         print(f"{url} has already downloaded in path:{savePath}.")
-        return
+        return False
     for block in bs.find("div", class_='Mid2L_con').findAll("p", class_="GsImageLabel"):
         # print(block)
         if block.img is None:
@@ -104,6 +105,7 @@ def fetchGifDetail(url, isFirstLoad):
         print("===========================================")
         print("start fetch next page")
         fetchGifDetail(nextPageNode['href'], False)
+    return True
 
 
 def fetchPage(page):
@@ -121,11 +123,11 @@ def fetchPage(page):
             if str(title).endswith(s):
                 # itemInfo.append({"link": block.a['href'], "title": title})
                 if s == TARGET_SUFFIX[0]:
-                    fetchGifDetail(block.a['href'], True)
-                    count += 1
+                    if fetchGifDetail(block.a['href'], True):
+                        count += 1
                 else:
-                    fetchPicDetail(block.a['href'], True)
-                    count += 1
+                    if fetchPicDetail(block.a['href'], True):
+                        count += 1
     return count
 
 

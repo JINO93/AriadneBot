@@ -1,14 +1,18 @@
+import re
+
 from graia.ariadne.app import Ariadne
 from graia.ariadne.event.message import GroupMessage, FriendMessage
 from graia.ariadne.message.chain import MessageChain
 from graia.ariadne.message.element import Plain, Image
-from graia.ariadne.message.parser.pattern import FullMatch, WildcardMatch
+from graia.ariadne.message.parser.pattern import FullMatch, WildcardMatch, ArgumentMatch
 from graia.ariadne.message.parser.twilight import Twilight, Sparkle
 from graia.ariadne.model import Friend, Group
 from graia.saya import Saya, Channel
 from graia.saya.builtins.broadcast import ListenerSchema
 from graia.saya.event import SayaModuleInstalled
 
+from common.schedule_job_helper import ScheduleJobHelper
+from common.utils import load_config, save_config
 from modules.gamersky.gamersky_sub import getPicByType, fetchPage, TYPE_DEFAULT, TYPE_GIF, TYPE_RANDOM
 
 saya = Saya.current()
@@ -38,6 +42,10 @@ channel.description(f"{__description__}\n{__usage__}")
 
 __usage__ = "使用方法：lyf [type]"
 
+config_path = 'modules/gamersky/config.json'
+config = load_config(config_path)
+schedule_helper = ScheduleJobHelper(channel)
+
 
 @channel.use(
     ListenerSchema(
@@ -46,22 +54,40 @@ __usage__ = "使用方法：lyf [type]"
             Twilight(
                 Sparkle(
                     matches={
-                        "header": FullMatch("gs-fetch page"),
-                        # "arg": ArgumentMatch("page", optional=False),
-                        "page_index": WildcardMatch(optional=True),
+                        "header": FullMatch("gs-admin"),
+                        "fetch_arg": ArgumentMatch("--fetch", "-f", optional=True),
+                        "schedule_arg": ArgumentMatch("--schedule", "-s", optional=True),
+                        "schedule_enable_arg": ArgumentMatch("--enable-schedule", "-e", optional=True),
+                        # "param": WildcardMatch(optional=True),
                     },
                 )
             )
         ],
     )
 )
-async def friend_message_listener(app: Ariadne, friend: Friend, page_index: WildcardMatch):
+async def friend_message_listener(app: Ariadne, friend: Friend,
+                                  fetch_arg: ArgumentMatch,
+                                  schedule_arg: ArgumentMatch,
+                                  schedule_enable_arg: ArgumentMatch
+                                  # param: WildcardMatch
+                                  ):
     try:
-        index = '1'
-        if page_index.matched:
-            index = page_index.result.asDisplay()
-        count = fetchPage(index)
-        await app.sendFriendMessage(friend, MessageChain.create([Plain(f'fetch article count:{count}')]))
+        if fetch_arg.matched:
+            index = fetch_arg.result.asDisplay()
+            count = fetchPage(index)
+            await app.sendFriendMessage(friend, MessageChain.create([Plain(f'fetch article count:{count}')]))
+        elif schedule_enable_arg.matched:
+            p = schedule_enable_arg.result.asDisplay()
+            print(f"receive param:{p}")
+            config['schedule'] = int(p)
+            save_config(config_path, config)
+            if not int(p):
+                schedule_helper.removeAllJob()
+            # updateSchedule()
+        elif schedule_arg.matched:
+            scheduleRules = schedule_arg.result.asDisplay()
+            scheduleRules = re.sub(r":", " ", scheduleRules)
+            schedule_helper.addScheduleJob("schedule_send_pic", schedule_send_pic, scheduleRules)
     except ValueError:
         await app.sendFriendMessage(friend, MessageChain.create([Plain(__usage__)]))
 
@@ -99,3 +125,7 @@ async def group_message_listener(app: Ariadne, group: Group, arg1: WildcardMatch
                                        [Image(path=picPath), Plain(picPath[picPath.rindex("/") + 2:-4])]))
     except ValueError:
         await app.sendGroupMessage(group, MessageChain.create([Plain(__usage__)]))
+
+
+async def schedule_send_pic(app: Ariadne):
+    print("1")
