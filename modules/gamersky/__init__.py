@@ -10,6 +10,8 @@ from graia.ariadne.model import Friend, Group
 from graia.saya import Saya, Channel
 from graia.saya.builtins.broadcast import ListenerSchema
 from graia.saya.event import SayaModuleInstalled
+from graia.scheduler.saya import SchedulerSchema
+from graia.scheduler.timers import crontabify
 
 from common.schedule_job_helper import ScheduleJobHelper
 from common.utils import load_config, save_config
@@ -131,6 +133,10 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
             # updateSchedule()
         elif schedule_arg.matched:
             scheduleRules = schedule_arg.result.asDisplay()
+            if scheduleRules == "cancal":
+                schedule_helper.removeJob('schedule_send_pic')
+                await app.sendGroupMessage(group, MessageChain.create([Plain('取消定时成功')]))
+                return
             scheduleRules = re.sub(r":", " ", scheduleRules)
             schedule_helper.addScheduleJob("schedule_send_pic", schedule_send_pic, scheduleRules)
         elif subscribe_arg.matched:
@@ -189,3 +195,12 @@ async def schedule_send_pic(app: Ariadne):
         await app.sendGroupMessage(group_id,
                                    MessageChain.create(
                                        [Image(path=picPath), Plain(picPath[picPath.rindex("/") + 2:-4])]))
+
+
+@channel.use(
+    SchedulerSchema(
+        crontabify("45-55/1 12,18 * * * *")  # 分钟, 小时, 月, 日, 周, 秒
+    )
+)
+async def schedule_fetch_data(app: Ariadne):
+    fetchPage(1)

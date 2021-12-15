@@ -14,8 +14,8 @@ class ScheduleJobHelper:
     def addScheduleJob(self, job_name, job_callback, schedule_rules):
         cube = Cube(job_callback, self.__getSchemaByRules(schedule_rules))
         if job_name in self.cubeMap.keys():
-            print(f"schedule job [{job_name}] already add.")
-            return
+            print(f"schedule job [{job_name}] already add,replace new one.")
+            self.removeJob(job_name)
         self.cubeMap[job_name] = cube
         self.channel.content.append(cube)
         with self.saya.behaviour_interface.require_context(self.channel.module) as interface:
@@ -36,10 +36,18 @@ class ScheduleJobHelper:
                 with self.saya.behaviour_interface.require_context(self.channel.module) as interface:
                     interface.uninstall_cube(target_cube)
 
+    def removeJob(self, job_name):
+        if job_name not in self.cubeMap.keys():
+            return
+        target_cube = self.cubeMap.pop(job_name)
+        if target_cube:
+            self.channel.cancel(target_cube.content)
+            with self.saya.behaviour_interface.require_context(self.channel.module) as interface:
+                interface.uninstall_cube(target_cube)
+
     def __getSchemaByRules(self, schedule_rules):
         return SchedulerSchema(
             crontabify(schedule_rules),
             cancelable=True
         )
-
 
