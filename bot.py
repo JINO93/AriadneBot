@@ -6,8 +6,9 @@ from graia.ariadne.model import MiraiSession
 from graia.broadcast import Broadcast
 from graia.saya import Saya
 from graia.saya.builtins.broadcast import BroadcastBehaviour
-from graia.scheduler import GraiaScheduler
-from graia.scheduler.saya import GraiaSchedulerBehaviour
+
+from schedule.TagGraiaScheduler import TagGraiaScheduler
+from schedule.TagGraiaSchedulerBehaviour import TagGraiaSchedulerBehaviour
 
 loop = asyncio.new_event_loop()
 
@@ -23,8 +24,8 @@ app = Ariadne(
 saya = Saya(bcc)
 saya.install_behaviours(BroadcastBehaviour(bcc))
 # 定时任务
-scheduler = GraiaScheduler(loop, bcc)
-saya.install_behaviours(GraiaSchedulerBehaviour(scheduler))
+scheduler = TagGraiaScheduler(loop, bcc)
+saya.install_behaviours(TagGraiaSchedulerBehaviour(scheduler))
 
 ignore = ["__init__.py", "__pycache__"]
 

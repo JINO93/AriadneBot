@@ -1,4 +1,5 @@
 import re
+import string
 
 from graia.ariadne.app import Ariadne
 from graia.ariadne.event.message import GroupMessage, FriendMessage
@@ -13,9 +14,9 @@ from graia.saya.event import SayaModuleInstalled
 from graia.scheduler.saya import SchedulerSchema
 from graia.scheduler.timers import crontabify
 
-from common.schedule_job_helper import ScheduleJobHelper
 from common.utils import load_config, save_config
 from modules.gamersky.gamersky_sub import getPicByType, fetchPage, TYPE_DEFAULT, TYPE_GIF, TYPE_RANDOM
+from schedule.schedule_job_helper import ScheduleJobHelper
 
 saya = Saya.current()
 channel = Channel.current()
@@ -93,22 +94,26 @@ async def friend_message_listener(app: Ariadne, friend: Friend,
         await app.sendFriendMessage(friend, MessageChain.create([Plain(__usage__)]))
 
 
+group_admin_twilight = Twilight(
+    Sparkle(
+        [RegexMatch("gs-admin")],
+        matches={
+            "fetch_arg": ArgumentMatch("--fetch", "-f", optional=True),
+            "schedule_arg": ArgumentMatch("--schedule", "-s", optional=True),
+            "schedule_enable_arg": ArgumentMatch("--enable-schedule", "-e", optional=True),
+            "subscribe_arg": ArgumentMatch("--subscribe", "-sub", "-S", optional=True),
+            "unsubscribe_arg": ArgumentMatch("--unsubscribe", "-unsub", "-U", optional=True),
+            "schedule_list_arg": RegexMatch("list", optional=True)
+        },
+    )
+)
+
+
 @channel.use(
     ListenerSchema(
         listening_events=[GroupMessage],
         inline_dispatchers=[
-            Twilight(
-                Sparkle(
-                    matches={
-                        "header": FullMatch("gs-admin"),
-                        "fetch_arg": ArgumentMatch("--fetch", "-f", optional=True),
-                        "schedule_arg": ArgumentMatch("--schedule", "-s", optional=True),
-                        "schedule_enable_arg": ArgumentMatch("--enable-schedule", "-e", optional=True),
-                        "subscribe_arg": ArgumentMatch("--subscribe", "-sub", "-S", optional=True),
-                        # "param": WildcardMatch(optional=True),
-                    },
-                )
-            )
+            group_admin_twilight
         ],
     )
 )
@@ -116,7 +121,9 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
                                     fetch_arg: ArgumentMatch,
                                     schedule_arg: ArgumentMatch,
                                     schedule_enable_arg: ArgumentMatch,
-                                    subscribe_arg: ArgumentMatch
+                                    subscribe_arg: ArgumentMatch,
+                                    unsubscribe_arg: ArgumentMatch,
+                                    schedule_list_arg: RegexMatch,
                                     ):
     try:
         if fetch_arg.matched:
@@ -132,22 +139,55 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
                 schedule_helper.removeAllJob()
             # updateSchedule()
         elif schedule_arg.matched:
-            scheduleRules = schedule_arg.result.asDisplay()
-            if scheduleRules == "cancal":
+            schedule_conmand = schedule_arg.result.asDisplay()
+            if schedule_conmand == "cancal":
                 schedule_helper.removeJob('schedule_send_pic')
                 await app.sendGroupMessage(group, MessageChain.create([Plain('取消定时成功')]))
                 return
-            scheduleRules = re.sub(r":", " ", scheduleRules)
-            schedule_helper.addScheduleJob("schedule_send_pic", schedule_send_pic, scheduleRules)
+            schedule_conmand_split = schedule_conmand.split("-")
+            rule = schedule_conmand_split[0]
+            sche_name = ''
+            if len(schedule_conmand_split) >= 2:
+                sche_name = schedule_conmand_split[1]
+            rule = re.sub(r":", " ", rule)
+            if not sche_name in config['schedule_tasks']:
+                config['schedule_tasks'][sche_name] = {}
+            config['schedule_tasks'][sche_name]['rule'] = rule
+            save_config(config_path, config)
+            schedule_helper.addScheduleJob(sche_name, schedule_send_pic, rule)
+            await app.sendGroupMessage(group, MessageChain.create([Plain(f'成功开启定时任务：{sche_name}')]))
         elif subscribe_arg.matched:
             sub = subscribe_arg.result.asDisplay()
-            if sub in ['1', 'true', 'True'] and group not in config['sub_list']:
-                config['sub_list'].append(group.id)
-                msg = '订阅成功'
+            if sub in config['schedule_tasks']:
+                if 'subscribe_list' in config['schedule_tasks'][sub] and group.id in config['schedule_tasks'][sub]['subscribe_list']:
+                    msg = '已经订阅过了'
+                else:
+                    if 'subscribe_list' not in config['schedule_tasks'][sub]:
+                        config['schedule_tasks'][sub]['subscribe_list'] = []
+                    config['schedule_tasks'][sub]['subscribe_list'].append(group.id)
+                    msg = '订阅成功'
+                    save_config(config_path, config)
             else:
-                config['sub_list'].remove(group.id)
-                msg = '取消订阅成功'
-            save_config(config_path, config)
+                msg = '频道不存在'
+            await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
+        elif unsubscribe_arg.matched:
+            sub = unsubscribe_arg.result.asDisplay()
+            if sub in config['schedule_tasks']:
+                if 'subscribe_list' in config['schedule_tasks'][sub] and group.id in config['schedule_tasks'][sub][
+                    'subscribe_list']:
+                    msg = f'已经取消订阅{sub}'
+                    config['schedule_tasks'][sub]['subscribe_list'].remove(group.id)
+                    save_config(config_path, config)
+                else:
+                    msg = '没有订阅此频道'
+            else:
+                msg = '频道不存在'
+            await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
+        elif schedule_list_arg.matched:
+            job_name_list = config['schedule_tasks'].keys()
+            msg = f"当前运行的频道总共({len(job_name_list)})：\r\n"
+            for n in job_name_list:
+                msg += f" {n} \r\n"
             await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
     except ValueError:
         await app.sendGroupMessage(group, MessageChain.create([Plain(__usage__)]))
@@ -188,13 +228,17 @@ async def group_message_listener(app: Ariadne, group: Group, arg1: WildcardMatch
         await app.sendGroupMessage(group, MessageChain.create([Plain(__usage__)]))
 
 
-async def schedule_send_pic(app: Ariadne):
-    for group_id in config['sub_list']:
+async def schedule_send_pic(app: Ariadne, job_name: string):
+    print(f"schedule_send_pic,name:{job_name}")
+    subscribe_list_ = config['schedule_tasks'][job_name]['subscribe_list'] if 'subscribe_list' in \
+                                                                              config['schedule_tasks'][job_name] else []
+    for group_id in subscribe_list_:
         picPath = getPicByType(int(TYPE_RANDOM))
         print(f"send pic path:{picPath}")
-        await app.sendGroupMessage(group_id,
-                                   MessageChain.create(
-                                       [Image(path=picPath), Plain(picPath[picPath.rindex("/") + 2:-4])]))
+        if picPath:
+            await app.sendGroupMessage(group_id,
+                                       MessageChain.create(
+                                           [Image(path=picPath), Plain(picPath[picPath.rindex("/") + 2:-4])]))
 
 
 @channel.use(
