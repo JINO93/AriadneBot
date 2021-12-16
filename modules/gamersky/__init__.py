@@ -252,7 +252,7 @@ async def schedule_send_pic(app: Ariadne, job_name: string):
 
 @channel.use(
     SchedulerSchema(
-        crontabify("45-55/1 12,18 * * * *")  # 分钟, 小时, 月, 日, 周, 秒
+        crontabify("45-55/1 12,18 * * 1-5 *")  # 分钟, 小时, 月, 日, 周, 秒
     )
 )
 async def schedule_fetch_data(app: Ariadne):
