@@ -103,7 +103,8 @@ group_admin_twilight = Twilight(
             "schedule_enable_arg": ArgumentMatch("--enable-schedule", "-e", optional=True),
             "subscribe_arg": ArgumentMatch("--subscribe", "-sub", "-S", optional=True),
             "unsubscribe_arg": ArgumentMatch("--unsubscribe", "-unsub", "-U", optional=True),
-            "schedule_list_arg": RegexMatch("list", optional=True)
+            "schedule_list_arg": RegexMatch("list", optional=True),
+            "schedule_cancel_arg": ArgumentMatch("--sucheduler-cancel", '-sc', optional=True)
         },
     )
 )
@@ -124,6 +125,7 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
                                     subscribe_arg: ArgumentMatch,
                                     unsubscribe_arg: ArgumentMatch,
                                     schedule_list_arg: RegexMatch,
+                                    schedule_cancel_arg: ArgumentMatch
                                     ):
     try:
         if fetch_arg.matched:
@@ -140,10 +142,6 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
             # updateSchedule()
         elif schedule_arg.matched:
             schedule_conmand = schedule_arg.result.asDisplay()
-            if schedule_conmand == "cancal":
-                schedule_helper.removeJob('schedule_send_pic')
-                await app.sendGroupMessage(group, MessageChain.create([Plain('取消定时成功')]))
-                return
             schedule_conmand_split = schedule_conmand.split("-")
             rule = schedule_conmand_split[0]
             sche_name = ''
@@ -159,7 +157,8 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
         elif subscribe_arg.matched:
             sub = subscribe_arg.result.asDisplay()
             if sub in config['schedule_tasks']:
-                if 'subscribe_list' in config['schedule_tasks'][sub] and group.id in config['schedule_tasks'][sub]['subscribe_list']:
+                if 'subscribe_list' in config['schedule_tasks'][sub] and \
+                        group.id in config['schedule_tasks'][sub]['subscribe_list']:
                     msg = '已经订阅过了'
                 else:
                     if 'subscribe_list' not in config['schedule_tasks'][sub]:
@@ -173,8 +172,8 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
         elif unsubscribe_arg.matched:
             sub = unsubscribe_arg.result.asDisplay()
             if sub in config['schedule_tasks']:
-                if 'subscribe_list' in config['schedule_tasks'][sub] and group.id in config['schedule_tasks'][sub][
-                    'subscribe_list']:
+                if 'subscribe_list' in config['schedule_tasks'][sub] and \
+                        group.id in config['schedule_tasks'][sub]['subscribe_list']:
                     msg = f'已经取消订阅{sub}'
                     config['schedule_tasks'][sub]['subscribe_list'].remove(group.id)
                     save_config(config_path, config)
@@ -188,6 +187,16 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
             msg = f"当前运行的频道总共({len(job_name_list)})：\r\n"
             for n in job_name_list:
                 msg += f" {n} \r\n"
+            await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
+        elif schedule_cancel_arg.matched:
+            sub = schedule_cancel_arg.result.asDisplay()
+            if sub in config['schedule_tasks']:
+                config['schedule_tasks'].pop(sub)
+                save_config(config_path, config)
+                schedule_helper.removeJob(sub)
+                msg = f'停止定时任务【{sub}】成功'
+            else:
+                msg = f'没有叫【{sub}】的定时任务'
             await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
     except ValueError:
         await app.sendGroupMessage(group, MessageChain.create([Plain(__usage__)]))

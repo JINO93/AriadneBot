@@ -1,1 +1,1 @@
-{"schedule": 0, "schedule_tasks": {"test": {"rule": "* * * * * */10", "subscribe_list": [827206881]}}}
+{"schedule": 0, "schedule_tasks": {}}
