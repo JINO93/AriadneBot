@@ -142,7 +142,7 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
             # updateSchedule()
         elif schedule_arg.matched:
             schedule_conmand = schedule_arg.result.asDisplay()
-            schedule_conmand_split = schedule_conmand.split("-")
+            schedule_conmand_split = schedule_conmand.split("@")
             rule = schedule_conmand_split[0]
             sche_name = ''
             if len(schedule_conmand_split) >= 2:
