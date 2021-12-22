@@ -45,4 +45,5 @@ if __name__ == "__main__":
     try:
         loop.run_until_complete(app.lifecycle())
     except KeyboardInterrupt:
+        print('----start exiting---')
         loop.run_until_complete(app.request_stop())
