@@ -5,9 +5,9 @@ from pydantic import BaseModel
 
 
 class ScheduleTask(BaseModel):
-    module: str
     name: str
     rule: str
+    command: str
     enable: bool = True
     subscribe_user: List[int] = []
     subscribe_group: List[int] = []

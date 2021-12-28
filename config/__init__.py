@@ -83,3 +83,8 @@ class ConfigManager:
         target_tasks = self._schedule_task_table.search(where('module') == module_name)
         if target_tasks:
             return list(map(lambda x: ScheduleTask(**x), target_tasks))
+
+    def getAllScheduleTasks(self):
+        target_tasks = self._schedule_task_table.all()
+        if target_tasks:
+            return list(map(lambda x: ScheduleTask(**x), target_tasks))

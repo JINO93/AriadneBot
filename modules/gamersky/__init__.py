@@ -17,6 +17,7 @@ from config.config import global_config_manager
 from config.model import ScheduleTask
 from modules.BaseModule import BaseModule
 from modules.gamersky.gamersky_sub import getPicByType, fetchPage, TYPE_DEFAULT, TYPE_GIF, TYPE_RANDOM
+from schedule.ScheduleMessageEvent import ScheduleMessageEvent
 
 gamersky_module = BaseModule(Channel.current(), 'Gamersky_information', '投喂Gamersky美图', 'JINO')
 __usage__ = "使用方法：lyf [type]"
@@ -115,20 +116,19 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
         # updateSchedule()
         elif schedule_arg.matched:
             schedule_conmand = schedule_arg.result.asDisplay()
-            schedule_conmand_split = schedule_conmand.split("@")
-            rule = schedule_conmand_split[0]
-            sche_name = ''
-            if len(schedule_conmand_split) >= 2:
-                sche_name = schedule_conmand_split[1]
-            rule = re.sub(r":", " ", rule)
-            schedule_task = ScheduleTask(
-                module=gamersky_module.name,
-                name=sche_name,
-                rule=rule
-            )
-            global_config_manager.addOrUpdateScheduleTask(schedule_task)
-            gamersky_module.schedule_helper.addScheduleJob(sche_name, schedule_send_pic, rule)
-            await app.sendGroupMessage(group, MessageChain.create([Plain(f'成功开启定时任务：{sche_name}')]))
+            try:
+                rule, sche_name, command = schedule_conmand.split("@")
+                rule = re.sub(r":", " ", rule)
+                schedule_task = ScheduleTask(
+                    name=sche_name,
+                    rule=rule,
+                    command=command
+                )
+                app.broadcast.postEvent(ScheduleMessageEvent(task=schedule_task))
+                msg = f'成功开启定时任务：{sche_name}'
+            except ValueError:
+                msg = __usage__
+            await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
         elif subscribe_arg.matched:
             sub = subscribe_arg.result.asDisplay()
             task = global_config_manager.getScheduleTask(sub)
@@ -156,7 +156,7 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
                 msg = '频道不存在'
             await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
         elif schedule_list_arg.matched:
-            tasks = global_config_manager.getScheduleTasksByModule(gamersky_module.name)
+            tasks = global_config_manager.getAllScheduleTasks()
             count = len(tasks) if tasks else 0
             msg = f"当前运行的频道总共({count})：\r\n"
             if count:
@@ -233,9 +233,3 @@ async def schedule_send_pic(app: Ariadne, job_name: string):
 async def schedule_fetch_data(app: Ariadne):
     fetchPage(1)
 
-
-schedule_tasks = global_config_manager.getScheduleTasksByModule(gamersky_module.name)
-if schedule_tasks:
-    for task in schedule_tasks:
-        print(f'开启定时任务【{task.name}】,规则为：{task.rule}')
-        gamersky_module.schedule_helper.addScheduleJob(task.name, schedule_send_pic, task.rule)

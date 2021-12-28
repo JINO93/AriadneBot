@@ -3,6 +3,7 @@ from graia.scheduler.saya import SchedulerSchema
 
 from graia.scheduler.timers import crontabify
 
+from config import ScheduleTask
 from schedule.JobNameDispatcher import JobNameDispatcher
 
 
@@ -13,13 +14,13 @@ class ScheduleJobHelper:
         self.saya = Saya.current()
         self.cubeMap = {}
 
-    def addScheduleJob(self, job_name, job_callback, schedule_rules):
-        cube = Cube(job_callback, self.__getSchemaByRules(job_name, schedule_rules))
-        cube.tag = job_name
-        if job_name in self.cubeMap.keys():
-            print(f"schedule job [{job_name}] already add,replace new one.")
-            self.removeJob(job_name)
-        self.cubeMap[job_name] = cube
+    def addScheduleJob(self, schedule_task: ScheduleTask, job_callback):
+        cube = Cube(job_callback, self.__getSchemaByRules(schedule_task))
+        cube.tag = schedule_task.name
+        if schedule_task.name in self.cubeMap.keys():
+            print(f"schedule job [{schedule_task.name}] already add,replace new one.")
+            self.removeJob(schedule_task.name)
+        self.cubeMap[schedule_task.name] = cube
         self.channel.content.append(cube)
         with self.saya.behaviour_interface.require_context(self.channel.module) as interface:
             interface.allocate_cube(cube)
@@ -48,10 +49,10 @@ class ScheduleJobHelper:
             with self.saya.behaviour_interface.require_context(self.channel.module) as interface:
                 interface.uninstall_cube(target_cube)
 
-    def __getSchemaByRules(self, job_name, schedule_rules):
+    def __getSchemaByRules(self, schedule_task: ScheduleTask):
         return SchedulerSchema(
-            crontabify(schedule_rules),
+            crontabify(schedule_task.rule),
             cancelable=True,
-            dispatchers=[JobNameDispatcher(job_name)]
+            dispatchers=[JobNameDispatcher(schedule_task)]
         )
 
