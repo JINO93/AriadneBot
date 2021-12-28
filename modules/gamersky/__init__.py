@@ -8,52 +8,21 @@ from graia.ariadne.message.element import Plain, Image
 from graia.ariadne.message.parser.pattern import FullMatch, WildcardMatch, ArgumentMatch, RegexMatch
 from graia.ariadne.message.parser.twilight import Twilight, Sparkle
 from graia.ariadne.model import Friend, Group
-from graia.saya import Saya, Channel
+from graia.saya import Channel
 from graia.saya.builtins.broadcast import ListenerSchema
-from graia.saya.event import SayaModuleInstalled, SayaModuleUninstall
 from graia.scheduler.saya import SchedulerSchema
 from graia.scheduler.timers import crontabify
 
 from config.config import global_config_manager
 from config.model import ScheduleTask
+from modules.BaseModule import BaseModule
 from modules.gamersky.gamersky_sub import getPicByType, fetchPage, TYPE_DEFAULT, TYPE_GIF, TYPE_RANDOM
-from schedule.schedule_job_helper import ScheduleJobHelper
 
-saya = Saya.current()
-channel = Channel.current()
-
-
-@channel.use(ListenerSchema(
-    listening_events=[SayaModuleInstalled]
-))
-async def module_listener(event: SayaModuleInstalled):
-    print(f"{event.module}::模块加载成功！！")
-
-
-@channel.use(ListenerSchema(
-    listening_events=[SayaModuleUninstall]
-))
-async def module_listener(event: SayaModuleUninstall):
-    print(f"{event.module}::模块卸载ing！！")
-
-
-#
-# 插件信息
-__name__ = "Gamersky_information"
-__description__ = "投喂Gamersky美图"
-__author__ = "JINO"
+gamersky_module = BaseModule(Channel.current(), 'Gamersky_information', '投喂Gamersky美图', 'JINO')
 __usage__ = "使用方法：lyf [type]"
-#
-#
-channel.name(__name__)
-channel.author(__author__)
-channel.description(f"{__description__}\n{__usage__}")
-
-schedule_helper = ScheduleJobHelper(channel)
-module_config = global_config_manager.getModuleConfig(channel.module)
 
 
-@channel.use(
+@gamersky_module.use(
     ListenerSchema(
         listening_events=[FriendMessage],
         inline_dispatchers=[
@@ -89,11 +58,11 @@ async def friend_message_listener(app: Ariadne, friend: Friend,
         #     config['schedule'] = int(p)
         #     save_config(config_path, config)
         #     if not int(p):
-        #         schedule_helper.removeAllJob()
+        #         gamersky_module.schedule_helper.removeAllJob()
         elif schedule_arg.matched:
             scheduleRules = schedule_arg.result.asDisplay()
             scheduleRules = re.sub(r":", " ", scheduleRules)
-            schedule_helper.addScheduleJob("schedule_send_pic", schedule_send_pic, scheduleRules)
+            gamersky_module.schedule_helper.addScheduleJob("schedule_send_pic", schedule_send_pic, scheduleRules)
     except ValueError:
         await app.sendFriendMessage(friend, MessageChain.create([Plain(__usage__)]))
 
@@ -114,7 +83,7 @@ group_admin_twilight = Twilight(
 )
 
 
-@channel.use(
+@gamersky_module.use(
     ListenerSchema(
         listening_events=[GroupMessage],
         inline_dispatchers=[
@@ -142,7 +111,7 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
         #     config['schedule'] = int(p)
         #     save_config(config_path, config)
         #     if not int(p):
-        #         schedule_helper.removeAllJob()
+        #         gamersky_module.schedule_helper.removeAllJob()
         # updateSchedule()
         elif schedule_arg.matched:
             schedule_conmand = schedule_arg.result.asDisplay()
@@ -153,12 +122,12 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
                 sche_name = schedule_conmand_split[1]
             rule = re.sub(r":", " ", rule)
             schedule_task = ScheduleTask(
-                module=channel.module,
+                module=gamersky_module.name,
                 name=sche_name,
                 rule=rule
             )
             global_config_manager.addOrUpdateScheduleTask(schedule_task)
-            schedule_helper.addScheduleJob(sche_name, schedule_send_pic, rule)
+            gamersky_module.schedule_helper.addScheduleJob(sche_name, schedule_send_pic, rule)
             await app.sendGroupMessage(group, MessageChain.create([Plain(f'成功开启定时任务：{sche_name}')]))
         elif subscribe_arg.matched:
             sub = subscribe_arg.result.asDisplay()
@@ -187,7 +156,7 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
                 msg = '频道不存在'
             await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
         elif schedule_list_arg.matched:
-            tasks = global_config_manager.getScheduleTasksByModule(channel.module)
+            tasks = global_config_manager.getScheduleTasksByModule(gamersky_module.name)
             count = len(tasks) if tasks else 0
             msg = f"当前运行的频道总共({count})：\r\n"
             if count:
@@ -199,7 +168,7 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
             task = global_config_manager.getScheduleTask(sub)
             if task:
                 global_config_manager.deleteScheduleTask(task)
-                schedule_helper.removeJob(sub)
+                gamersky_module.schedule_helper.removeJob(sub)
                 msg = f'停止定时任务【{sub}】成功'
             else:
                 msg = f'没有叫【{sub}】的定时任务'
@@ -208,7 +177,7 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
         await app.sendGroupMessage(group, MessageChain.create([Plain(__usage__)]))
 
 
-@channel.use(
+@gamersky_module.use(
     ListenerSchema(
         listening_events=[GroupMessage],
         inline_dispatchers=[
@@ -256,7 +225,7 @@ async def schedule_send_pic(app: Ariadne, job_name: string):
                                                [Image(path=picPath), Plain(picPath[picPath.rindex("/") + 2:-4])]))
 
 
-@channel.use(
+@gamersky_module.use(
     SchedulerSchema(
         crontabify("45-55/1 12,18 * * 1-5 *")  # 分钟, 小时, 月, 日, 周, 秒
     )
@@ -265,8 +234,8 @@ async def schedule_fetch_data(app: Ariadne):
     fetchPage(1)
 
 
-schedule_tasks = global_config_manager.getScheduleTasksByModule(channel.module)
+schedule_tasks = global_config_manager.getScheduleTasksByModule(gamersky_module.name)
 if schedule_tasks:
     for task in schedule_tasks:
         print(f'开启定时任务【{task.name}】,规则为：{task.rule}')
-        schedule_helper.addScheduleJob(task.name, schedule_send_pic, task.rule)
+        gamersky_module.schedule_helper.addScheduleJob(task.name, schedule_send_pic, task.rule)
