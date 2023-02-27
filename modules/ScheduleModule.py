@@ -3,8 +3,9 @@ from graia.ariadne.event.message import GroupMessage, FriendMessage
 from graia.ariadne.message.chain import MessageChain
 from graia.ariadne.message.element import Plain
 from graia.ariadne.model import Member, Group, Friend, MemberPerm
-from graia.saya import Channel, SayaModuleInstalled
+from graia.saya import Channel
 from graia.saya.builtins.broadcast import ListenerSchema
+from graia.saya.event import SayaModuleInstalled
 
 from config import ScheduleTask
 from config.config import global_config_manager

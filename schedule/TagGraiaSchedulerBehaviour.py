@@ -1,7 +1,8 @@
 from typing import Any
 
-from graia.saya import Cube, Behaviour
+from graia.saya import Behaviour
 from graia.scheduler.saya import SchedulerSchema
+from graia.saya.cube import Cube
 
 from schedule import TagGraiaScheduler
 
@@ -34,7 +35,7 @@ class TagGraiaSchedulerBehaviour(Behaviour):
 
         return True
 
-    def uninstall(self, cube: Cube) -> Any:
+    def release(self, cube: Cube[Any]) -> Any:
         if isinstance(cube.metaclass, SchedulerSchema):
             def filterTagTask(item):
                 if not hasattr(cube, 'tag'):

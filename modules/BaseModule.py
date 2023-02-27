@@ -1,5 +1,7 @@
-from graia.saya import Channel, SayaModuleInstalled, SayaModuleUninstall, BaseSchema
+from graia.saya import Channel
 from graia.saya.builtins.broadcast import ListenerSchema
+from graia.saya.event import SayaModuleInstalled, SayaModuleUninstall
+from graia.saya.schema import BaseSchema
 
 from config import ModuleConfig
 from config.config import global_config_manager
