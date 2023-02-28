@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 
 class ScheduleTask(BaseModel):
+    module: str
     name: str
     rule: str
     command: str

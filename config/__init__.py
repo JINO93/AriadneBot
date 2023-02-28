@@ -1,6 +1,7 @@
 import threading
 from typing import TypeVar
 
+from pydantic import ValidationError
 from tinydb import TinyDB, where
 
 from config.model import GlobalConfig, ModuleConfig, ScheduleTask
@@ -87,4 +88,9 @@ class ConfigManager:
     def getAllScheduleTasks(self):
         target_tasks = self._schedule_task_table.all()
         if target_tasks:
-            return list(map(lambda x: ScheduleTask(**x), target_tasks))
+            try:
+                ret = list(map(lambda x: ScheduleTask(**x), target_tasks))
+            except ValidationError as e:
+                print(e.json())
+                ret = list()
+            return ret
