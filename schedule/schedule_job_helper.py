@@ -1,5 +1,6 @@
-from graia.saya import Cube, Saya
+from graia.saya import Saya
 from graia.scheduler.saya import SchedulerSchema
+from graia.saya.cube import Cube
 
 from graia.scheduler.timers import crontabify
 
@@ -55,4 +56,3 @@ class ScheduleJobHelper:
             cancelable=True,
             dispatchers=[JobNameDispatcher(schedule_task)]
         )
-
