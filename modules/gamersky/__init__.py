@@ -5,8 +5,8 @@ from graia.ariadne.app import Ariadne
 from graia.ariadne.event.message import GroupMessage, FriendMessage
 from graia.ariadne.message.chain import MessageChain
 from graia.ariadne.message.element import Plain, Image
-from graia.ariadne.message.parser.pattern import FullMatch, WildcardMatch, ArgumentMatch, RegexMatch
-from graia.ariadne.message.parser.twilight import Twilight, Sparkle
+from graia.ariadne.message.parser.twilight import FullMatch, WildcardMatch, ArgumentMatch, RegexMatch, MatchResult
+from graia.ariadne.message.parser.twilight import Twilight
 from graia.ariadne.model import Friend, Group
 from graia.saya import Channel
 from graia.saya.builtins.broadcast import ListenerSchema
@@ -28,30 +28,28 @@ __usage__ = "使用方法：lyf [type]"
         listening_events=[FriendMessage],
         inline_dispatchers=[
             Twilight(
-                Sparkle(
-                    matches={
-                        "header": FullMatch("gs-admin"),
-                        "fetch_arg": ArgumentMatch("--fetch", "-f", optional=True),
-                        "schedule_arg": ArgumentMatch("--schedule", "-s", optional=True),
-                        "schedule_enable_arg": ArgumentMatch("--enable-schedule", "-e", optional=True),
-                        # "param": WildcardMatch(optional=True),
-                    },
-                )
+                [
+                    "header" @ FullMatch("gs-admin"),
+                    "fetch_arg" @ ArgumentMatch("--fetch", "-f", optional=True),
+                    "schedule_arg" @ ArgumentMatch("--schedule", "-s", optional=True),
+                    "schedule_enable_arg" @ ArgumentMatch("--enable-schedule", "-e", optional=True),
+                    # "param": WildcardMatch(optional=True),
+                ]
             )
         ],
     )
 )
 async def friend_message_listener(app: Ariadne, friend: Friend,
-                                  fetch_arg: ArgumentMatch,
-                                  schedule_arg: ArgumentMatch,
-                                  schedule_enable_arg: ArgumentMatch
+                                  fetch_arg: MatchResult,
+                                  schedule_arg: MatchResult,
+                                  schedule_enable_arg: MatchResult
                                   # param: WildcardMatch
                                   ):
     try:
         if fetch_arg.matched:
             index = fetch_arg.result.asDisplay()
             count = fetchPage(index)
-            await app.sendFriendMessage(friend, MessageChain.create([Plain(f'fetch article count:{count}')]))
+            await app.send_friend_message(friend, MessageChain([Plain(f'fetch article count:{count}')]))
             # todo 定时任务全局开关
         # elif schedule_enable_arg.matched:
         #     p = schedule_enable_arg.result.asDisplay()
@@ -60,27 +58,25 @@ async def friend_message_listener(app: Ariadne, friend: Friend,
         #     save_config(config_path, config)
         #     if not int(p):
         #         gamersky_module.schedule_helper.removeAllJob()
-        elif schedule_arg.matched:
-            scheduleRules = schedule_arg.result.asDisplay()
-            scheduleRules = re.sub(r":", " ", scheduleRules)
-            gamersky_module.schedule_helper.addScheduleJob("schedule_send_pic", schedule_send_pic, scheduleRules)
+        # elif schedule_arg.matched:
+        #     scheduleRules = schedule_arg.result.asDisplay()
+        #     scheduleRules = re.sub(r":", " ", scheduleRules)
+        #     gamersky_module.schedule_helper.addScheduleJob("schedule_send_pic", schedule_send_pic, scheduleRules)
     except ValueError:
-        await app.sendFriendMessage(friend, MessageChain.create([Plain(__usage__)]))
+        await app.send_friend_message(friend, MessageChain([Plain(__usage__)]))
 
 
 group_admin_twilight = Twilight(
-    Sparkle(
-        [RegexMatch("gs-admin")],
-        matches={
-            "fetch_arg": ArgumentMatch("--fetch", "-f", optional=True),
-            "schedule_arg": ArgumentMatch("--schedule", "-s", optional=True),
-            "schedule_enable_arg": ArgumentMatch("--enable-schedule", "-e", optional=True),
-            "subscribe_arg": ArgumentMatch("--subscribe", "-sub", "-S", optional=True),
-            "unsubscribe_arg": ArgumentMatch("--unsubscribe", "-unsub", "-U", optional=True),
-            "schedule_list_arg": RegexMatch("list", optional=True),
-            "schedule_cancel_arg": ArgumentMatch("--sucheduler-cancel", '-sc', optional=True)
-        },
-    )
+    [
+        RegexMatch("gs-admin"),
+        "fetch_arg" @ ArgumentMatch("--fetch", "-f", optional=True),
+        "schedule_arg" @ ArgumentMatch("--schedule", "-s", optional=True),
+        "schedule_enable_arg" @ ArgumentMatch("--enable-schedule", "-e", optional=True),
+        "subscribe_arg" @ ArgumentMatch("--subscribe", "-sub", "-S", optional=True),
+        "unsubscribe_arg" @ ArgumentMatch("--unsubscribe", "-unsub", "-U", optional=True),
+        "schedule_list_arg" @ RegexMatch("list", optional=True),
+        "schedule_cancel_arg" @ ArgumentMatch("--sucheduler-cancel", '-sc', optional=True)
+    ]
 )
 
 
@@ -93,19 +89,19 @@ group_admin_twilight = Twilight(
     )
 )
 async def group_admin_manage_handle(app: Ariadne, group: Group,
-                                    fetch_arg: ArgumentMatch,
-                                    schedule_arg: ArgumentMatch,
-                                    schedule_enable_arg: ArgumentMatch,
-                                    subscribe_arg: ArgumentMatch,
-                                    unsubscribe_arg: ArgumentMatch,
-                                    schedule_list_arg: RegexMatch,
-                                    schedule_cancel_arg: ArgumentMatch
+                                    fetch_arg: MatchResult,
+                                    schedule_arg: MatchResult,
+                                    schedule_enable_arg: MatchResult,
+                                    subscribe_arg: MatchResult,
+                                    unsubscribe_arg: MatchResult,
+                                    schedule_list_arg: MatchResult,
+                                    schedule_cancel_arg: MatchResult
                                     ):
     try:
         if fetch_arg.matched:
             index = fetch_arg.result.asDisplay()
             count = fetchPage(index)
-            await app.sendGroupMessage(group, MessageChain.create([Plain(f'fetch article count:{count}')]))
+            await app.send_group_message(group, MessageChain([Plain(f'fetch article count:{count}')]))
         # elif schedule_enable_arg.matched:
         #     p = schedule_enable_arg.result.asDisplay()
         #     print(f"receive param:{p}")
@@ -128,7 +124,7 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
                 msg = f'成功开启定时任务：{sche_name}'
             except ValueError:
                 msg = __usage__
-            await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
+            await app.send_group_message(group, MessageChain([Plain(msg)]))
         elif subscribe_arg.matched:
             sub = subscribe_arg.result.asDisplay()
             task = global_config_manager.getScheduleTask(sub)
@@ -141,7 +137,7 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
                     global_config_manager.addOrUpdateScheduleTask(task)
             else:
                 msg = '频道不存在'
-            await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
+            await app.send_group_message(group, MessageChain([Plain(msg)]))
         elif unsubscribe_arg.matched:
             sub = unsubscribe_arg.result.asDisplay()
             task = global_config_manager.getScheduleTask(sub)
@@ -154,7 +150,7 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
                     msg = '没有订阅此频道'
             else:
                 msg = '频道不存在'
-            await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
+            await app.send_group_message(group, MessageChain([Plain(msg)]))
         elif schedule_list_arg.matched:
             tasks = global_config_manager.getAllScheduleTasks()
             count = len(tasks) if tasks else 0
@@ -162,7 +158,7 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
             if count:
                 for n in tasks:
                     msg += f" {n.name} \r\n"
-            await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
+            await app.send_group_message(group, MessageChain([Plain(msg)]))
         elif schedule_cancel_arg.matched:
             sub = schedule_cancel_arg.result.asDisplay()
             task = global_config_manager.getScheduleTask(sub)
@@ -172,9 +168,9 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
                 msg = f'停止定时任务【{sub}】成功'
             else:
                 msg = f'没有叫【{sub}】的定时任务'
-            await app.sendGroupMessage(group, MessageChain.create([Plain(msg)]))
+            await app.send_group_message(group, MessageChain([Plain(msg)]))
     except ValueError:
-        await app.sendGroupMessage(group, MessageChain.create([Plain(__usage__)]))
+        await app.send_group_message(group, MessageChain([Plain(__usage__)]))
 
 
 @gamersky_module.use(
@@ -182,17 +178,15 @@ async def group_admin_manage_handle(app: Ariadne, group: Group,
         listening_events=[GroupMessage],
         inline_dispatchers=[
             Twilight(
-                Sparkle(
-                    matches={
-                        "header": FullMatch("lyf"),
-                        "arg1": WildcardMatch(optional=True),
-                    },
-                )
+                [
+                    "header" @ FullMatch("lyf"),
+                    "arg1" @ WildcardMatch(optional=True),
+                ]
             )
         ],
     )
 )
-async def group_message_listener(app: Ariadne, group: Group, arg1: WildcardMatch):
+async def group_message_listener(app: Ariadne, group: Group, arg1: MatchResult):
     try:
         showType = TYPE_DEFAULT
         if arg1.matched:
@@ -205,11 +199,11 @@ async def group_message_listener(app: Ariadne, group: Group, arg1: WildcardMatch
                 showType = TYPE_DEFAULT
         picPath = getPicByType(int(showType))
         print(f"send pic path:{picPath} showType:{showType}")
-        await app.sendGroupMessage(group,
-                                   MessageChain.create(
-                                       [Image(path=picPath), Plain(picPath[picPath.rindex("/") + 2:-4])]))
+        await app.send_group_message(group,
+                                     MessageChain(
+                                         [Image(path=picPath), Plain(picPath[picPath.rindex("/") + 2:-4])]))
     except ValueError:
-        await app.sendGroupMessage(group, MessageChain.create([Plain(__usage__)]))
+        await app.send_group_message(group, MessageChain([Plain(__usage__)]))
 
 
 async def schedule_send_pic(app: Ariadne, job_name: string):
@@ -220,9 +214,9 @@ async def schedule_send_pic(app: Ariadne, job_name: string):
             picPath = getPicByType(int(TYPE_RANDOM))
             print(f"send pic path:{picPath}")
             if picPath:
-                await app.sendGroupMessage(group_id,
-                                           MessageChain.create(
-                                               [Image(path=picPath), Plain(picPath[picPath.rindex("/") + 2:-4])]))
+                await app.send_group_message(group_id,
+                                             MessageChain(
+                                                 [Image(path=picPath), Plain(picPath[picPath.rindex("/") + 2:-4])]))
 
 
 @gamersky_module.use(
@@ -232,4 +226,3 @@ async def schedule_send_pic(app: Ariadne, job_name: string):
 )
 async def schedule_fetch_data(app: Ariadne):
     fetchPage(1)
-

@@ -28,17 +28,19 @@ with saya.module_context():
         if module in ignore:
             continue
         try:
-            if os.path.isdir(module):
+            if os.path.isdir(os.getcwd()+"/modules/"+module):
                 saya.require(f"modules.{module}")
             else:
                 saya.require(f"modules.{module.split('.')[0]}")
-        except ModuleNotFoundError:
+        except ModuleNotFoundError as e:
+            print(f"module {module} not found, error:{e.msg}")
             pass
 
 if __name__ == "__main__":
     try:
-        # loop.run_until_complete(app.lifecycle())
+        # loop.run_until_complete(main())
         Ariadne.launch_blocking()
     except KeyboardInterrupt:
         print('----start exiting---')
+        Ariadne.stop()
         # loop.run_until_complete(app.request_stop())
